@@ -1,7 +1,17 @@
 import axios from 'axios';
 import { tokenStorage } from './tokenStorage';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+function getApiBaseUrl(): string {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
+      return '/api';
+    }
+  }
+  return envUrl || '/api';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 const BROWSER_TZ = (() => {
   try {

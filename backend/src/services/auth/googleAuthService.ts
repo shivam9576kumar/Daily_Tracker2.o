@@ -12,10 +12,11 @@ export interface GoogleUserInfo {
 /**
  * Build the Google OAuth consent screen URL.
  */
-export function getGoogleAuthUrl(): string {
+export function getGoogleAuthUrl(customRedirectUri?: string): string {
+  const redirect_uri = customRedirectUri || googleOAuthConfig.callbackUrl;
   const params = new URLSearchParams({
     client_id: googleOAuthConfig.clientId,
-    redirect_uri: googleOAuthConfig.callbackUrl,
+    redirect_uri,
     response_type: 'code',
     scope: googleOAuthConfig.scopes.join(' '),
     access_type: 'offline',
@@ -27,7 +28,8 @@ export function getGoogleAuthUrl(): string {
 /**
  * Exchange the authorization code for tokens, then fetch user info.
  */
-export async function handleGoogleCallback(code: string) {
+export async function handleGoogleCallback(code: string, customRedirectUri?: string) {
+  const redirect_uri = customRedirectUri || googleOAuthConfig.callbackUrl;
   // 1. Exchange code for tokens
   const tokenResponse = await fetch(googleOAuthConfig.tokenUrl, {
     method: 'POST',
@@ -36,7 +38,7 @@ export async function handleGoogleCallback(code: string) {
       code,
       client_id: googleOAuthConfig.clientId,
       client_secret: googleOAuthConfig.clientSecret,
-      redirect_uri: googleOAuthConfig.callbackUrl,
+      redirect_uri,
       grant_type: 'authorization_code',
     }),
   });

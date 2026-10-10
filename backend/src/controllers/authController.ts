@@ -12,18 +12,31 @@ import logger from '../utils/logger';
 import { prisma } from '../config/database';
 import { createExchangeCode, consumeExchangeCode } from '../services/auth/exchangeCodeService';
 
+function resolveRedirectUri(req: Request): string {
+  if (env.GOOGLE_CALLBACK_URL && !env.GOOGLE_CALLBACK_URL.includes('localhost')) {
+    return env.GOOGLE_CALLBACK_URL;
+  }
+  const host = req.get('x-forwarded-host') || req.get('host');
+  const proto = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
+  if (host && !host.includes('localhost')) {
+    return `${proto}://${host}/api/auth/google/callback`;
+  }
+  return env.GOOGLE_CALLBACK_URL;
+}
+
 /**
  * GET /api/auth/google
  * Redirects to Google's OAuth consent screen.
  */
-export function googleLogin(_req: Request, res: Response) {
+export function googleLogin(req: Request, res: Response) {
   if (!env.GOOGLE_CLIENT_ID) {
     return res.status(400).send(`
       <h2>Google OAuth Client ID not configured on server.</h2>
-      <p>Please return to the login page and use <strong>Continue as Guest / Demo</strong>, or configure <code>GOOGLE_CLIENT_ID</code> in Render environment variables.</p>
+      <p>Please return to the login page and use <strong>Continue as Guest / Demo</strong>, or configure <code>GOOGLE_CLIENT_ID</code> in Vercel environment variables.</p>
     `);
   }
-  const url = getGoogleAuthUrl();
+  const redirectUri = resolveRedirectUri(req);
+  const url = getGoogleAuthUrl(redirectUri);
   res.redirect(url);
 }
 
@@ -90,7 +103,8 @@ export async function googleCallback(
       return sendError(res, 'Missing authorization code', 400);
     }
 
-    const user = await handleGoogleCallback(code);
+    const redirectUri = resolveRedirectUri(req);
+    const user = await handleGoogleCallback(code, redirectUri);
     const token = generateToken({ userId: user.id, email: user.email });
 
     logger.info(`User logged in: ${user.email}`);
@@ -100,10 +114,12 @@ export async function googleCallback(
     // opaque code does. See Bug 6 for the full rationale.
     const exchangeCode = createExchangeCode(token);
 
-    const hostOrigin = `${req.protocol}://${req.get('host')}`;
+    const proto = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
+    const host = req.get('x-forwarded-host') || req.get('host');
+    const hostOrigin = host ? `${proto}://${host}` : `${req.protocol}://${req.get('host')}`;
     const baseUrl = (env.FRONTEND_URL && !env.FRONTEND_URL.includes('localhost'))
       ? env.FRONTEND_URL
-      : (env.isProd ? hostOrigin : env.FRONTEND_URL);
+      : hostOrigin;
 
     res.redirect(`${baseUrl}/auth/callback?code=${exchangeCode}`);
   } catch (error) {
