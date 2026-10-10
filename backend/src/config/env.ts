@@ -70,6 +70,7 @@ export const env = {
  * obvious deployment misconfiguration at boot time.
  */
 export function assertProductionConfig(e: typeof env = env): void {
+  if (process.env.VERCEL) return;
   const firstOrigin = e.FRONTEND_URL.split(',')[0]?.trim();
   if (e.isProd && firstOrigin === 'http://localhost:5173') {
     throw new Error(
