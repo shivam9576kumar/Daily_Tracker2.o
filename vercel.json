@@ -1,19 +1,24 @@
 {
-  "version": 2,
+  "services": {
+    "frontend": {
+      "root": "frontend"
+    },
+    "backend": {
+      "root": "backend"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "destination": {
+        "service": "backend"
+      }
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/daily",
-      "schedule": "0 0 * * *"
+      "destination": {
+        "service": "frontend"
+      }
     }
   ]
 }
