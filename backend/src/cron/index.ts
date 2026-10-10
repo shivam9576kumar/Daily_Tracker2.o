@@ -10,17 +10,17 @@ import logger from '../utils/logger';
  * CronRun table prevents duplicate daily runs.
  * Individual cron jobs are also idempotent.
  */
+export const runDailyMaintenance = async () => {
+  await cronRunService.runOncePerDay('daily-maintenance', async () => {
+    await runBacklogCron();
+    await runExpiryCron();
+    await runPotdWarmupCron();
+    await runPotdPruneCron();
+  });
+};
+
 export function initCronJobs() {
   logger.info('⏰ Cron scheduler initialized');
-
-  const runDailyMaintenance = async () => {
-    await cronRunService.runOncePerDay('daily-maintenance', async () => {
-      await runBacklogCron();
-      await runExpiryCron();
-      await runPotdWarmupCron();
-      await runPotdPruneCron();
-    });
-  };
 
   // Run once on startup.
   runDailyMaintenance().catch((err) => {

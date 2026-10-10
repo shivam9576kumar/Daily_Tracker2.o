@@ -47,8 +47,13 @@ const allowedOrigins = env.FRONTEND_URL.split(',').map((s) => s.trim()).filter(B
  *
  * Exported for direct unit testing without spinning up an HTTP server.
  */
+import { runDailyMaintenance } from './cron';
+
 export function isAllowedOrigin(origin: string | undefined, frontendUrlConfig: string = env.FRONTEND_URL): boolean {
   if (!origin) return true;
+  if (origin.endsWith('.vercel.app') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    return true;
+  }
   const origins = frontendUrlConfig.split(',').map((s) => s.trim()).filter(Boolean);
   return origins.includes(origin);
 }
@@ -116,6 +121,17 @@ app.use('/api/classes', classesRoutes);
 app.use('/api/potd', potdRoutes);
 app.use('/api/todo', todoRoutes);
 app.use('/api/daily-challenges', dailyChallengesRoutes);
+
+// ─── Vercel Cron Route ───
+app.all('/api/cron/daily', async (_req, res) => {
+  try {
+    await runDailyMaintenance();
+    res.json({ success: true, message: 'Daily maintenance executed successfully' });
+  } catch (err: any) {
+    logger.error('Vercel cron maintenance error:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Maintenance failed' });
+  }
+});
 
 // ─── Production Static Hosting & SPA Fallback ───
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
