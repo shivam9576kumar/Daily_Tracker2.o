@@ -3,6 +3,7 @@ import logger from './logger';
 import { env } from '../config/env';
 
 const PLATFORM_HOST_MAP: [string, string][] = [
+  ['cses.fi', 'cses'],
   ['leetcode.com', 'leetcode'],
   ['geeksforgeeks.org', 'gfg'],
   ['interviewbit.com', 'interviewbit'],

@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDailyChallengesStore } from '../../store/dailyChallengesStore';
 import BandPickerModal from './BandPickerModal';
+import CsesPicker from './CsesPicker';
 import './todo.css';
 
 export default function DailyChallengesMenu() {
   const [open, setOpen] = useState(false);
   const [bandPickerOpen, setBandPickerOpen] = useState(false);
+  const [csesPickerOpen, setCsesPickerOpen] = useState(false);
   const [resumeBand, setResumeBand] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const {
     settings, loading, saving, error,
     fetch, setPotdEnabled, disableCp31, setCp31DailyCount,
+    cses, csesSetEnabled, csesRefresh,
   } = useDailyChallengesStore();
 
   useEffect(() => {
     if (open && !settings && !loading) void fetch();
-  }, [open, settings, loading, fetch]);
+    if (open && !cses) void csesRefresh(true);
+  }, [open, settings, loading, fetch, cses, csesRefresh]);
 
   useEffect(() => {
     if (!open) return;
@@ -37,6 +41,20 @@ export default function DailyChallengesMenu() {
   const cp31On = settings?.cp31Enabled ?? false;
   const cp31Band = settings?.cp31Band ?? null;
   const cp31DailyCount = settings?.cp31DailyCount ?? 1;
+  const csesOn = cses?.enabled ?? false;
+  const csesTopic = cses?.activeTopic?.title ?? null;
+
+  const handleCsesToggle = () => {
+    if (csesOn) {
+      void csesSetEnabled(false);
+    } else {
+      void csesSetEnabled(true);
+      if (cses?.status === 'needs-topic' || !cses?.activeTopic) {
+        setCsesPickerOpen(true);
+        setOpen(false);
+      }
+    }
+  };
 
   const handleCp31Toggle = () => {
     if (cp31On) {
@@ -162,6 +180,41 @@ export default function DailyChallengesMenu() {
               </div>
             )}
 
+            {/* CSES row */}
+            <div className="dc-row">
+              <div className="dc-row__text">
+                <span className="dc-row__name">
+                  CSES Daily
+                  {csesOn && csesTopic && (
+                    <button
+                      type="button"
+                      className="dc-row__band-chip"
+                      onClick={() => { setCsesPickerOpen(true); setOpen(false); }}
+                      title="Click to view topics"
+                    >
+                      {csesTopic} · Topics
+                    </button>
+                  )}
+                </span>
+                <span className="dc-row__desc">
+                  {csesOn
+                    ? (csesTopic ? `Topic: ${csesTopic} — 1/day` : 'Pick a topic to start')
+                    : 'Off — one CSES problem a day, topic-based.'}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={csesOn}
+                aria-label="Toggle CSES Daily"
+                className={`dc-switch${csesOn ? ' is-on' : ''}`}
+                disabled={loading}
+                onClick={handleCsesToggle}
+              >
+                <span className="dc-switch__thumb" aria-hidden="true" />
+              </button>
+            </div>
+
             {error && <p className="dc-menu__error">{error}</p>}
             <p className="dc-menu__note">
               Turning off removes today's pending challenges. Solved history, coins and streak are kept.
@@ -174,6 +227,11 @@ export default function DailyChallengesMenu() {
         open={bandPickerOpen}
         onClose={() => setBandPickerOpen(false)}
         resumeBand={resumeBand}
+      />
+
+      <CsesPicker
+        open={csesPickerOpen}
+        onClose={() => setCsesPickerOpen(false)}
       />
     </>
   );

@@ -31,6 +31,8 @@ model User {
   notifications  Notification[]
   classSchedules ClassSchedule[]
   potdDismissals PotdDismissal[]
+  csesTrack      CsesTrack?
+  csesTopicRuns  CsesTopicRun[]
 
   @@map("users")
 }
@@ -69,7 +71,7 @@ model Task {
   platform          String?   @default("custom") // coderarmy | striver | neetcode | leetcode | etc.
   problemUrl        String?   @map("problem_url")
   sourceUrl         String?   @map("source_url")
-  /// 'new' | 'revision' | 'potd' | 'personal' | 'cp31'
+  /// 'new' | 'revision' | 'potd' | 'personal' | 'cp31' | 'cses'
   taskType          String    @default("new") @map("task_type")
   /// 'pending' | 'completed' | 'backlog' | 'expired' | 'skipped'
   status            String    @default("pending")
@@ -107,6 +109,11 @@ model Task {
   /// evaluates rows resolved today, so historical rows defaulting false
   /// cannot retroactively distort any past day's cap enforcement.
   isCp31Extra       Boolean   @default(false) @map("is_cp31_extra")
+  /// CSES problem served by this row (taskType 'cses'). Null otherwise.
+  practiceProblemId String?         @map("practice_problem_id")
+  /// Run number of that problem's topic for this user. 1 = first pass, 2+ = restarts.
+  practiceRun       Int?            @map("practice_run")
+  practiceProblem   PracticeProblem? @relation(fields: [practiceProblemId], references: [id], onDelete: Restrict)
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
 
@@ -124,6 +131,7 @@ model Task {
   @@unique([userId, potdDateKey], name: "user_potd_unique")
   /// Exactly one task per user per CP31 problem (NULLs are distinct in Postgres — non-CP31 rows unaffected).
   @@unique([userId, cp31ProblemId], name: "user_cp31_unique")
+  @@unique([userId, practiceProblemId, practiceRun], name: "user_practice_run_unique")
   @@index([userId, scheduledDate])
   @@index([userId, scheduledDateKey])
   @@index([userId, status])
@@ -280,7 +288,9 @@ model PracticeTopic {
   isActive  Boolean           @default(true) @map("is_active")
   createdAt DateTime          @default(now()) @map("created_at")
   updatedAt DateTime          @updatedAt @map("updated_at")
-  problems  PracticeProblem[]
+  problems         PracticeProblem[]
+  csesActiveTracks CsesTrack[]   @relation("CsesActiveTopic")
+  csesRuns         CsesTopicRun[]
 
   @@unique([source, slug])
   @@index([source, order])
@@ -293,15 +303,44 @@ model PracticeProblem {
   topicId   String        @map("topic_id")
   order     Int           // 1-based position inside its topic
   title     String
-  url       String
+  url       String        @unique
   isActive  Boolean       @default(true) @map("is_active")
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
   topic     PracticeTopic @relation(fields: [topicId], references: [id], onDelete: Restrict)
+  tasks     Task[]
 
-  @@unique([source, id])
   @@index([topicId, order])
   @@index([source, isActive])
   @@map("practice_problems")
+}
+
+model CsesTrack {
+  id            String         @id @default(uuid())
+  userId        String         @unique @map("user_id")
+  enabled       Boolean        @default(false)
+  enabledAt     DateTime?      @map("enabled_at")
+  activeTopicId String?        @map("active_topic_id")
+  /// 'YYYY-MM-DD' of the activity the welcome-back prompt was acknowledged for.
+  promptAckKey  String?        @map("prompt_ack_key")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeTopic   PracticeTopic? @relation("CsesActiveTopic", fields: [activeTopicId], references: [id], onDelete: Restrict)
+
+  @@map("cses_tracks")
+}
+
+model CsesTopicRun {
+  id         String        @id @default(uuid())
+  userId     String        @map("user_id")
+  topicId    String        @map("topic_id")
+  currentRun Int           @default(1) @map("current_run")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic      PracticeTopic @relation(fields: [topicId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, topicId])
+  @@map("cses_topic_runs")
 }
 

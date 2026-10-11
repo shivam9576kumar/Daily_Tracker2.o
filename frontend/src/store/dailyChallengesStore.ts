@@ -6,7 +6,8 @@ import { useDashboardStore } from './dashboardStore';
 import { useUIStore } from './uiStore';
 import { createLatestGate } from '../utils/latestGate';
 import { createSerialQueue } from '../utils/serialQueue';
-import type { DailyChallengeSettings } from '../types';
+import { csesApi } from '../services/csesApi';
+import type { CsesOverview, DailyChallengeSettings } from '../types';
 
 interface DailyChallengesState {
   settings: DailyChallengeSettings | null;
@@ -24,12 +25,21 @@ interface DailyChallengesState {
   cp31Skip: (taskId: string) => Promise<void>;
   cp31Retry: (taskId: string) => Promise<void>;
   cp31AdvanceBand: () => Promise<void>;
+  cses: CsesOverview | null;
+  csesRefresh: (silent?: boolean) => Promise<void>;
+  csesSetEnabled: (enabled: boolean) => Promise<void>;
+  csesSelectTopic: (topicId: string) => Promise<void>;
+  csesRestart: (topicId: string) => Promise<void>;
+  csesSkip: (taskId: string) => Promise<void>;
+  csesRetry: (taskId: string) => Promise<void>;
+  csesAcknowledgeReturn: () => Promise<void>;
 }
 
 type Setter = (partial: Partial<DailyChallengesState>) => void;
 
 const queue = createSerialQueue();
 const settingsGate = createLatestGate();
+const csesGate = createLatestGate();
 
 function refreshTodoAndDashboard(): void {
   void useTodoStore.getState().fetch(true);
@@ -58,6 +68,24 @@ function enqueue(set: Setter, work: () => Promise<void>): Promise<void> {
       await work();
     } finally {
       if (queue.depth <= 1) set({ saving: false });
+    }
+  });
+}
+
+/** One queued CSES mutation: apply the server's overview, toast, and refresh Todo and Dashboard. */
+function csesMutation(
+  set: Setter,
+  run: () => Promise<CsesOverview>,
+  toastText?: string,
+): Promise<void> {
+  return enqueue(set, async () => {
+    try {
+      const overview = await run();
+      set({ cses: overview });
+      if (toastText) useUIStore.getState().toast(toastText, 'info');
+      refreshTodoAndDashboard();
+    } catch (err) {
+      reportError(set, err);
     }
   });
 }
@@ -190,4 +218,34 @@ export const useDailyChallengesStore = create<DailyChallengesState>((set) => ({
         reportError(set, err);
       }
     }),
+
+  cses: null,
+
+  csesRefresh: async (silent = false) => {
+    const token = csesGate.begin();
+    try {
+      const overview = await csesApi.getOverview();
+      if (csesGate.isLatest(token)) set({ cses: overview });
+    } catch (err) {
+      if (!silent && csesGate.isLatest(token)) reportError(set, err);
+    }
+  },
+
+  csesSetEnabled: (enabled) =>
+    csesMutation(set, () => csesApi.setEnabled(enabled), enabled ? 'CSES Daily is on' : 'CSES Daily paused · your place is saved'),
+
+  csesSelectTopic: (topicId) =>
+    csesMutation(set, () => csesApi.selectTopic(topicId), 'Topic switched · your place is saved'),
+
+  csesRestart: (topicId) =>
+    csesMutation(set, () => csesApi.restart(topicId), 'Review run started · your history is kept'),
+
+  csesSkip: (taskId) =>
+    csesMutation(set, () => csesApi.skip(taskId), 'Skipped · next problem tomorrow'),
+
+  csesRetry: (taskId) =>
+    csesMutation(set, () => csesApi.retry(taskId), "Retry set for today's problem"),
+
+  csesAcknowledgeReturn: () =>
+    csesMutation(set, () => csesApi.acknowledgeReturn()),
 }));

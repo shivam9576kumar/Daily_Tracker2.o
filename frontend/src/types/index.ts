@@ -466,6 +466,7 @@ export interface TodoTodayGroups {
   completed: Task[];
   assignments: Assignment[];
   cp31: Task[];
+  cses: Task[];
 }
 
 export interface DailyChallengeMeta {
@@ -485,6 +486,7 @@ export interface DailyChallengeMeta {
     nextBand?: number | null;
     skippedCount: number;
   };
+  cses: CsesMeta | null;
 }
 
 export type TodoData = TodoResponse;
@@ -502,3 +504,32 @@ export interface TodoResponse {
   completed: TodoDateGroup[];
   dailyChallenges: DailyChallengeMeta;
 }
+
+export type CsesStatus = 'off' | 'needs-topic' | 'active' | 'topic-complete';
+export type CsesMessage =
+  | 'off' | 'needs-topic' | 'in-progress' | 'parked-waiting' | 'done-today' | 'topic-complete';
+
+export interface CsesTopicCard {
+  id: string; slug: string; title: string; order: number; total: number;
+  original: null | { solved: number; total: number };
+  current: null | { run: number; solved: number; skipped: number; total: number };
+  state: 'fresh' | 'in-progress' | 'complete';
+}
+
+export interface CsesOverview {
+  enabled: boolean;
+  status: CsesStatus;
+  message: CsesMessage;
+  resolvedTodayKind: 'solved' | 'skipped' | null;
+  activeTopic: null | {
+    id: string; slug: string; title: string; total: number;
+    currentRun: number; solvedInRun: number; skippedInRun: number;
+  };
+  problemToday: null | { task: Task; position: number; total: number; parked: boolean };
+  retryable: { taskId: string; title: string; position: number; url: string | null }[];
+  returnPrompt: null | { gapDays: number; topicTitle: string | null; position: number | null; total: number | null };
+  topics: CsesTopicCard[];
+}
+
+export type CsesMeta = Omit<CsesOverview, 'topics' | 'retryable'>;
+

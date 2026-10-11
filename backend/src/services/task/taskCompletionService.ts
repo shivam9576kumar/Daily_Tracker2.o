@@ -15,6 +15,7 @@ import { NotFoundError, ValidationError } from '../../utils/error';
 import { invalidateUserCache } from '../../middleware/authMiddleware';
 import { resolvePlatformValue } from '../../utils/platform';
 import { getUndoLifecyclePatch } from './taskLifecycle';
+import { CSES_UNDO_PATCH, decideSolve } from '../cses/csesPolicy';
 
 import {
   COIN_REWARDS,
@@ -171,11 +172,19 @@ export const taskCompletionService = {
    *  - rating given → bonus delta (new − previous), revisions regenerated (never duplicated)
    *  - anchor is the solved-on calendar day x in the user's timezone.
    */
-  async completeTask(userId: string, taskId: string, ratingInput?: unknown, tz: string = env.DEFAULT_TIMEZONE) {
+  async completeTask(userId: string, taskId: string, ratingInput?: unknown, tz: string = env.DEFAULT_TIMEZONE, now: Date = new Date()) {
     const rating = ratingInput === undefined || ratingInput === null || ratingInput === '' ? undefined : parseRating(ratingInput);
 
     const task = await prisma.task.findFirst({ where: { id: taskId, userId } });
     if (!task) throw new NotFoundError('Task');
+    if (task.taskType === 'cses' && task.status !== 'completed') {
+      const verdict = decideSolve({
+        status: task.status,
+        scheduledDateKey: task.scheduledDateKey,
+        today: todayKey(tz, now),
+      });
+      if (!verdict.ok) throw new ValidationError(verdict.reason);
+    }
     // DECISION: revision tasks are marked done, never rated (rating one would spawn revisions of revisions).
     if (rating && task.taskType === 'revision') throw new ValidationError('Revision tasks are marked done, not rated');
 
@@ -188,7 +197,6 @@ export const taskCompletionService = {
       throw new ValidationError('Only personal tasks can repeat');
     }
 
-    const now = new Date();
     const isFirstSolve = task.status !== 'completed';
     const nextRating: Rating | null = rating ?? (task.rating as Rating | null) ?? null;
     const coinDelta =
@@ -435,7 +443,7 @@ export const taskCompletionService = {
 
             const updated = await tx.task.update({
               where: { id: taskId },
-              data: patch,
+              data: task.taskType === 'cses' ? { ...CSES_UNDO_PATCH } : patch,
             });
 
             if (totalRefund > 0 && user) {

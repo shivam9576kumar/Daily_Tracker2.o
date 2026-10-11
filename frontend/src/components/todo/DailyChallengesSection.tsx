@@ -6,6 +6,8 @@ import { useUIStore } from '../../store/uiStore';
 import { dailyChallengesApi } from '../../services/dailyChallengesApi';
 import { getErrorMessage } from '../../services/api';
 import TodoTaskRow from './TodoTaskRow';
+import CsesBlock from './CsesBlock';
+import CsesPicker from './CsesPicker';
 import './todo.css';
 
 interface DailyChallengesSectionProps {
@@ -36,6 +38,7 @@ export default function DailyChallengesSection({
   const [skippedOpen, setSkippedOpen] = useState(false);
   const [skippedTasks, setSkippedTasks] = useState<Task[]>([]);
   const [loadingSkipped, setLoadingSkipped] = useState(false);
+  const [csesPickerOpen, setCsesPickerOpen] = useState(false);
 
   if (!meta) return null;
 
@@ -255,6 +258,22 @@ export default function DailyChallengesSection({
           )}
         </section>
       )}
+
+      {/* ── 3. CSES Section ── */}
+      <CsesBlock
+        meta={meta.cses}
+        onOpenPicker={() => setCsesPickerOpen(true)}
+        onOpenTask={onOpenTask}
+        onToggleSolved={onToggleSolved}
+        onRate={onRate}
+        onUnrate={onUnrate}
+        isBusy={isBusy}
+      />
+
+      <CsesPicker
+        open={csesPickerOpen}
+        onClose={() => setCsesPickerOpen(false)}
+      />
     </div>
   );
 }

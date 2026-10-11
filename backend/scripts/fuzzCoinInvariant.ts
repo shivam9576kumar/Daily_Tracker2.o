@@ -12,12 +12,20 @@ import { dailyChallengeSettingsService } from '../src/services/dailyChallenges/d
 import { ensureCp31TasksForUser, serveOneMore, skipCp31Problem, retrySkippedCp31Problem } from '../src/services/cp31/cp31Service';
 import { ensurePotdTaskForUser, currentPotdDateKey } from '../src/services/potd/potdService';
 import { getCp31Bands } from '../src/services/plan/cp31SheetLoader';
+import {
+  getCsesOverview,
+  setCsesEnabled,
+  selectCsesTopic,
+  skipCsesProblem,
+  retryCsesProblem,
+  restartCsesTopic,
+} from '../src/services/cses/csesService';
 import { todayKey } from '../src/utils/dateKeys';
 
 const TZ = 'Asia/Kolkata';
 const RATINGS = ['easy', 'medium', 'hard'] as const;
 const BONUS: Record<string, number> = { easy: 0, medium: 5, hard: 10 };
-const PARENT = ['new', 'potd', 'cp31'];
+const PARENT = ['new', 'potd', 'cp31', 'cses'];
 
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => { const m = a.match(/^--(\w+)=(.+)$/); return m ? [m[1], m[2]] : [a, 'true']; }));
 const STEPS = Number(argv.steps ?? 300);
@@ -31,6 +39,7 @@ const pick = <T>(arr: T[]): T | undefined => (arr.length ? arr[Math.floor(rnd() 
 
 let uid = '';
 const today = todayKey(TZ);
+let csesTopics: { id: string }[] = [];
 
 async function expectedCoins(): Promise<number> {
   const rows = await prisma.task.findMany({ where: { userId: uid, status: 'completed' }, select: { taskType: true, rating: true } });
@@ -55,6 +64,12 @@ const ops: { name: string; w: number; run: () => Promise<string> }[] = [
   { name: 'togglePotd', w: 1, run: async () => { const s = await dailyChallengeSettingsService.get(uid); await dailyChallengeSettingsService.update(uid, { potdEnabled: !s.potdEnabled }, TZ); return String(!s.potdEnabled); } },
   { name: 'toggleCp31', w: 1, run: async () => { const s = await dailyChallengeSettingsService.get(uid); await dailyChallengeSettingsService.update(uid, s.cp31Enabled ? { cp31Enabled: false } : { cp31Enabled: true, cp31Band: pick(getCp31Bands())!.band }, TZ); return String(!s.cp31Enabled); } },
   { name: 'switchBand', w: 1, run: async () => { const b = pick(getCp31Bands())!.band; await dailyChallengeSettingsService.update(uid, { cp31Band: b }, TZ); return String(b); } },
+  { name: 'csesEnsure', w: 4, run: async () => { const o = await getCsesOverview(uid, TZ); return o.status; } },
+  { name: 'csesSkip', w: 2, run: async () => { const t = pick(await tasks({ taskType: 'cses', status: 'pending' })); if (!t) return 'noop'; await skipCsesProblem(uid, t.id, TZ); return 'ok'; } },
+  { name: 'csesRetry', w: 2, run: async () => { const t = pick(await tasks({ taskType: 'cses', status: 'skipped' })); if (!t) return 'noop'; await retryCsesProblem(uid, t.id, TZ); return 'ok'; } },
+  { name: 'toggleCses', w: 1, run: async () => { const o = await getCsesOverview(uid, TZ); await setCsesEnabled(uid, !o.enabled, TZ); return String(!o.enabled); } },
+  { name: 'switchCsesTopic', w: 2, run: async () => { const top = pick(csesTopics); if (!top) return 'noop'; await selectCsesTopic(uid, top.id, TZ); return top.id; } },
+  { name: 'csesRestart', w: 1, run: async () => { const top = pick(csesTopics); if (!top) return 'noop'; await restartCsesTopic(uid, top.id, TZ); return 'ok'; } },
 ];
 const totalW = ops.reduce((s, o) => s + o.w, 0);
 const pickOp = () => { let r = rnd() * totalW; for (const o of ops) { r -= o.w; if (r <= 0) return o; } return ops[ops.length - 1]; };
@@ -67,6 +82,9 @@ async function main() {
   if (seeded) await prisma.potdCache.create({ data: { dateKey, title: 'Fuzz POTD', titleSlug: 'fuzz', difficulty: 'easy', url: 'https://leetcode.com/problems/two-sum/', topicTags: ['Array'], questionId: '1' } });
   uid = (await prisma.user.create({ data: { googleId: `fuzz-${Date.now()}`, email, name: 'Fuzz', coins: 0, timezone: TZ } })).id;
   await dailyChallengeSettingsService.update(uid, { cp31Band: 1300, cp31Enabled: true, cp31DailyCount: 2 }, TZ);
+  csesTopics = await prisma.practiceTopic.findMany({ where: { source: 'cses', isActive: true }, select: { id: true } });
+  await setCsesEnabled(uid, true, TZ);
+  if (csesTopics[0]) await selectCsesTopic(uid, csesTopics[0].id, TZ);
 
   const hist: Record<string, number> = {};
   console.log(`seed=${SEED} steps=${STEPS}`);

@@ -7,5 +7,5 @@ import { Prisma } from '@prisma/client';
 export const ACTIVITY_WHERE: Prisma.TaskWhereInput = {
   status: 'completed',
   completedAt: { not: null },
-  taskType: { in: ['new', 'revision', 'potd', 'cp31'] },
+  taskType: { in: ['new', 'revision', 'potd', 'cp31', 'cses'] },
 };

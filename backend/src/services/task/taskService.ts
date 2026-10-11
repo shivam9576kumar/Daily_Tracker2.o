@@ -113,7 +113,7 @@ export const taskService = {
       );
     }
 
-    const RESERVED_TASK_TYPES = ['potd', 'revision', 'personal', 'cp31'];
+    const RESERVED_TASK_TYPES = ['potd', 'revision', 'personal', 'cp31', 'cses'];
     if (data.taskType && RESERVED_TASK_TYPES.includes(data.taskType)) {
       throw new ValidationError('This task type is created automatically and cannot be added manually.');
     }
@@ -168,6 +168,9 @@ export const taskService = {
     const existing = await this.getTaskById(taskId, userId);
     if (existing.taskType === 'cp31') {
       throw new ValidationError('CP31 problems are managed by the ladder and can’t be edited');
+    }
+    if (existing.taskType === 'cses') {
+      throw new ValidationError('CSES problems are managed by the daily track and can’t be edited');
     }
 
     const title = validateOptionalText(data.title, 'Title', 200);
@@ -258,6 +261,9 @@ export const taskService = {
     const task = await this.getTaskById(taskId, userId);
     if (task.taskType === 'cp31') {
       throw new ValidationError('CP31 problems are managed by the ladder — use Skip instead of Delete');
+    }
+    if (task.taskType === 'cses') {
+      throw new ValidationError('CSES problems can’t be deleted — use Skip instead');
     }
 
     await prisma.$transaction(async (tx) => {

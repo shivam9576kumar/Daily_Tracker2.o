@@ -54,9 +54,9 @@ export const dashboardService = {
       cp31Skipped,
     ] = await Promise.all([
       taskRepository.getTodaysTasks(userId, tz, ensuredPotd.potd?.dateKey ?? null),
-      // Total unique problems actually solved (new tasks + potd + cp31, not revisions)
+      // Total unique problems actually solved (new tasks + potd + cp31 + cses, not revisions)
       prisma.task.count({
-        where: { userId, taskType: { in: ['new', 'potd', 'cp31'] }, status: 'completed' },
+        where: { userId, taskType: { in: ['new', 'potd', 'cp31', 'cses'] }, status: 'completed' },
       }),
       prisma.user.findUnique({
         where: { id: userId },

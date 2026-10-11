@@ -1,4 +1,5 @@
 import type { Assignment, Task } from '@prisma/client';
+import type { CsesMeta } from '../cses/csesService';
 
 export interface TodoSummary {
   inbox: number;
@@ -25,6 +26,7 @@ export interface TodoTodayGroups {
   completed: Task[];
   assignments: Assignment[];
   cp31: Task[];
+  cses: Task[];
 }
 
 export interface DailyChallengeMeta {
@@ -46,6 +48,7 @@ export interface DailyChallengeMeta {
     solvedToday?: number;
     pendingCount?: number;
   };
+  cses: CsesMeta | null;
 }
 
 export interface TodoResponse {

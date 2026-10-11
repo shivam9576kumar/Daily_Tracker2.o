@@ -6,6 +6,7 @@ export type Platform =
   | 'gfg'
   | 'codeforces'
   | 'hackerrank'
+  | 'cses'
   | 'custom';
 
 export const Platform = {
@@ -16,5 +17,7 @@ export const Platform = {
   GFG: 'gfg' as const,
   CODEFORCES: 'codeforces' as const,
   HACKERRANK: 'hackerrank' as const,
+  CSES: 'cses' as const,
   CUSTOM: 'custom' as const,
 };
+

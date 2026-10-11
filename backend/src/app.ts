@@ -26,6 +26,7 @@ import classesRoutes from './routes/classesRoutes';
 import potdRoutes from './routes/potdRoutes';
 import todoRoutes from './routes/todoRoutes';
 import dailyChallengesRoutes from './routes/dailyChallengesRoutes';
+import csesRoutes from './routes/csesRoutes';
 
 const app = express();
 
@@ -122,6 +123,7 @@ app.use('/api/classes', classesRoutes);
 app.use('/api/potd', potdRoutes);
 app.use('/api/todo', todoRoutes);
 app.use('/api/daily-challenges', dailyChallengesRoutes);
+app.use('/api/cses', csesRoutes);
 
 // ─── Scheduled Maintenance Cron Route ───
 app.get('/api/cron/daily', requireCronSecret(), async (_req, res, next) => {

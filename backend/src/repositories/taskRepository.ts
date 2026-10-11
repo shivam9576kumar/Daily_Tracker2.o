@@ -118,7 +118,7 @@ export const taskRepository = {
               { scheduledDateKey: null },
             ],
           },
-          { taskType: { notIn: ['personal', 'cp31'] } },
+          { taskType: { notIn: ['personal', 'cp31', 'cses'] } },
           { scheduledDate: { gte: start, lt: end } },
         ],
       },

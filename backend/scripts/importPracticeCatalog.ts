@@ -185,25 +185,11 @@ export async function applyCatalogImport(prisma: PrismaClient, plan: CatalogImpo
 
 export async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  let isApply =
-    args.includes('--apply') ||
-    process.env.npm_config_apply === 'true' ||
-    process.env.npm_config_apply === '' ||
-    process.env.npm_config_all === 'true';
-  let retireMissing =
-    args.includes('--retire-missing') ||
-    process.env.npm_config_retire_missing === 'true' ||
-    process.env.npm_config_retire_missing === '';
-  let allowRemote =
-    args.includes('--allow-remote') ||
-    process.env.npm_config_allow_remote === 'true' ||
-    process.env.npm_config_allow_remote === '';
-
+  const isApply = args.includes('--apply');
+  const retireMissing = args.includes('--retire-missing');
+  const allowRemote = args.includes('--allow-remote');
   const sourceArg = args.find((a) => a.startsWith('--source='));
-  let source = sourceArg ? sourceArg.split('=')[1] : null;
-  if (!source && process.env.npm_config_source) {
-    source = process.env.npm_config_source;
-  }
+  const source = sourceArg ? sourceArg.split('=')[1] : null;
 
   if (!source || source !== 'cses') {
     console.error('Error: --source=cses is required.');

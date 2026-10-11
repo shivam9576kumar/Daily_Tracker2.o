@@ -4,6 +4,7 @@ import logger from '../../utils/logger';
 import { taskRepository } from '../../repositories/taskRepository';
 import { ensurePotdTaskForUser } from '../potd/potdService';
 import { cp31Service, toPublicCp31State } from '../cp31/cp31Service';
+import { getCsesOverview, toCsesMeta } from '../cses/csesService';
 import {
   addDaysToKey,
   dateKeyInTz,
@@ -110,6 +111,13 @@ export const todoService = {
       skippedCount: skippedTasks.length,
     };
 
+    let csesMeta: ReturnType<typeof toCsesMeta> | null = null;
+    try {
+      csesMeta = toCsesMeta(await getCsesOverview(userId, tz, new Date(), { includeTopics: false }));
+    } catch (err) {
+      logger.warn('todoService: CSES ensure failed, continuing', { message: (err as Error)?.message });
+    }
+
     // Self-healing: move overdue dated work to backlog before it is read. Idempotent.
     try {
       await reconcileOverdueForUser(userId, tz);
@@ -213,6 +221,7 @@ export const todoService = {
       completed: completedToday,
       assignments: dueAssignments,
       cp31: regular.filter((t) => t.taskType === 'cp31'),
+      cses: regular.filter((t) => t.taskType === 'cses'),
     };
 
     // ── 5. Upcoming groups ──
@@ -265,6 +274,7 @@ export const todoService = {
       dailyChallenges: {
         potd: { enabled: potdEnabled },
         cp31: cp31Meta,
+        cses: csesMeta,
       },
     };
   },
