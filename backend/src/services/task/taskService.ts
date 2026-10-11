@@ -39,6 +39,32 @@ export interface CreateTaskInput {
 }
 
 /**
+ * Validates an optional text field from an UPDATE request.
+ *  - undefined  → field not sent → returns undefined (no change)
+ *  - non-string → ValidationError
+ *  - blank      → ValidationError (never silently ignored)
+ *  - too long   → ValidationError
+ */
+export function validateOptionalText(
+  value: unknown,
+  field: string,
+  maxLength?: number,
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw new ValidationError(`${field} must be text`);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new ValidationError(`${field} cannot be empty`);
+  }
+  if (maxLength !== undefined && trimmed.length > maxLength) {
+    throw new ValidationError(`${field} must be ${maxLength} characters or fewer`);
+  }
+  return trimmed;
+}
+
+/**
  * Core task service — CRUD operations and validation.
  */
 export const taskService = {
@@ -144,6 +170,9 @@ export const taskService = {
       throw new ValidationError('CP31 problems are managed by the ladder and can’t be edited');
     }
 
+    const title = validateOptionalText(data.title, 'Title', 200);
+    const topic = validateOptionalText(data.topic, 'Topic');
+
     if (data.difficulty && !DIFFICULTIES.includes(data.difficulty)) {
       throw new ValidationError(
         `difficulty must be one of: ${DIFFICULTIES.join(', ')}`
@@ -206,8 +235,8 @@ export const taskService = {
       : undefined;
 
     return taskRepository.updateTask(taskId, {
-      ...(data.title && { title: data.title.trim() }),
-      ...(data.topic && { topic: data.topic.trim() }),
+      ...(title !== undefined && { title }),
+      ...(topic !== undefined && { topic }),
       ...(data.difficulty && { difficulty: data.difficulty }),
       ...(resolvedPlatform !== undefined && { platform: resolvedPlatform }),
       ...(data.problemUrl !== undefined && {

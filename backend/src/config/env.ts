@@ -61,6 +61,9 @@ export const env = {
   // Helpers
   isDev: NODE_ENV === 'development',
   isProd: IS_PROD,
+
+  // Scheduled maintenance endpoint (/api/cron/daily). Required to use that endpoint.
+  CRON_SECRET: process.env.CRON_SECRET || '',
 } as const;
 
 /**

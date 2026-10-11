@@ -47,6 +47,7 @@ const allowedOrigins = env.FRONTEND_URL.split(',').map((s) => s.trim()).filter(B
  *
  * Exported for direct unit testing without spinning up an HTTP server.
  */
+import { requireCronSecret } from './middleware/cronAuthMiddleware';
 import { runDailyMaintenance } from './cron';
 
 export function isAllowedOrigin(origin: string | undefined, frontendUrlConfig: string = env.FRONTEND_URL): boolean {
@@ -122,14 +123,13 @@ app.use('/api/potd', potdRoutes);
 app.use('/api/todo', todoRoutes);
 app.use('/api/daily-challenges', dailyChallengesRoutes);
 
-// ─── Vercel Cron Route ───
-app.all('/api/cron/daily', async (_req, res) => {
+// ─── Scheduled Maintenance Cron Route ───
+app.get('/api/cron/daily', requireCronSecret(), async (_req, res, next) => {
   try {
     await runDailyMaintenance();
-    res.json({ success: true, message: 'Daily maintenance executed successfully' });
-  } catch (err: any) {
-    logger.error('Vercel cron maintenance error:', err);
-    res.status(500).json({ success: false, error: err?.message || 'Maintenance failed' });
+    sendSuccess(res, { ok: true, ranAt: new Date().toISOString() });
+  } catch (err) {
+    next(err);
   }
 });
 

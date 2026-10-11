@@ -10,6 +10,7 @@ import { ensureCp31TasksForUser, emptyCp31State, listSkippedCp31, toPublicCp31St
 import { computeCp31Streak, type Cp31StreakResult } from '../cp31/cp31StreakService';
 import { todayKey, addDaysToKey } from '../../utils/dateKeys';
 import { LIVE_TASK_WHERE, OPEN_BACKLOG_WHERE } from '../task/taskLifecycle';
+import { reconcileOverdueForUser } from '../task/overdueReconciler';
 
 /**
  * Runs an optional read/write and degrades to a fallback on failure.
@@ -35,6 +36,7 @@ export const dashboardService = {
       enabled: true, taskId: null, potd: null, stale: false,
     });
     const cp31State = await settle('CP31 ensure', () => ensureCp31TasksForUser(userId, tz), emptyCp31State());
+    await settle('overdue reconcile', () => reconcileOverdueForUser(userId, tz), 0);
 
     // PHASE 2 — reads, one concurrent batch
     const [

@@ -96,14 +96,21 @@ async function regenerateRevisions(
     where: { parentTaskId: parent.id, taskType: 'revision', status: { in: ['pending', 'backlog'] } },
   });
 
-  // 2. How much of the new plan is already fulfilled by completed work?
-  const completed = await tx.task.findMany({
-    where: { parentTaskId: parent.id, taskType: 'revision', status: 'completed' },
-    select: { revisionNumber: true },
+  // 2. Positions already OCCUPIED by surviving child rows.
+  //    completed = fulfilled work.
+  //    expired   = lapsed slot, still shown on the roadmap.
+  //    Both keep their revision number. Pending/backlog rows were deleted in step 1.
+  const survivors = await tx.task.findMany({
+    where: {
+      parentTaskId: parent.id,
+      taskType: 'revision',
+      status: { in: ['completed', 'expired'] },
+    },
+    select: { revisionNumber: true, status: true },
   });
-  const alreadyDone = completed.length;
-  const maxExistingNumber = completed.reduce((m, r) => Math.max(m, r.revisionNumber), 0);
-  const nextPosition = Math.max(alreadyDone, maxExistingNumber);
+  const completedCount = survivors.filter((r) => r.status === 'completed').length;
+  const highestOccupied = survivors.reduce((m, r) => Math.max(m, r.revisionNumber), 0);
+  const nextPosition = Math.max(completedCount, highestOccupied);
 
   const intervals = REVISION_INTERVALS[rating];
   const targetTotal = intervals.length;

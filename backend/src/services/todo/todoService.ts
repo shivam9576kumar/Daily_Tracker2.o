@@ -38,6 +38,7 @@ import {
   LIVE_TASK_WHERE,
   OPEN_BACKLOG_WHERE,
 } from '../task/taskLifecycle';
+import { reconcileOverdueForUser } from '../task/overdueReconciler';
 
 /** 'Today' | 'Tomorrow' | 'Yesterday' | weekday name — relative to the user's today key. */
 function labelFor(dateKey: string, today: string): string {
@@ -108,6 +109,15 @@ export const todoService = {
       ...toPublicCp31State(cp31State),
       skippedCount: skippedTasks.length,
     };
+
+    // Self-healing: move overdue dated work to backlog before it is read. Idempotent.
+    try {
+      await reconcileOverdueForUser(userId, tz);
+    } catch (err) {
+      logger.warn('todoService: overdue reconcile failed, continuing', {
+        message: (err as Error)?.message,
+      });
+    }
 
     // ── 2. Queries ──
     const [inboxRows, todayRows, upcomingRows, backlogRows, completedRows, assignments] = await Promise.all([
