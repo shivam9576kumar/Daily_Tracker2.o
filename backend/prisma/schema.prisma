@@ -269,3 +269,39 @@ model PotdDismissal {
   @@unique([userId, dateKey])
   @@map("potd_dismissals")
 }
+
+// ─── Practice Catalog ───
+model PracticeTopic {
+  id        String            @id @default(uuid())
+  source    String            // 'cses'
+  slug      String            // e.g. 'sorting-and-searching'
+  title     String
+  order     Int
+  isActive  Boolean           @default(true) @map("is_active")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  problems  PracticeProblem[]
+
+  @@unique([source, slug])
+  @@index([source, order])
+  @@map("practice_topics")
+}
+
+model PracticeProblem {
+  id        String        @id                  // stable external id, e.g. 'cses-1068'
+  source    String        // 'cses'
+  topicId   String        @map("topic_id")
+  order     Int           // 1-based position inside its topic
+  title     String
+  url       String
+  isActive  Boolean       @default(true) @map("is_active")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  topic     PracticeTopic @relation(fields: [topicId], references: [id], onDelete: Restrict)
+
+  @@unique([source, id])
+  @@index([topicId, order])
+  @@index([source, isActive])
+  @@map("practice_problems")
+}
+
